@@ -5,6 +5,16 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <TextView
+        android:id="@+id/upload_progress_label"
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:text="0.0%"
+        android:textColor="#3AE"
+        android:textAlignment="center"
+        android:layout_marginTop="50dp"
+        />
+
     <ProgressBar
         android:id="@+id/upload_progress"
         style="?android:attr/progressBarStyleHorizontal"
@@ -21,6 +31,18 @@
         android:layout_width="match_parent"
         android:layout_height="200dp"
         android:background="#EEE"
+        android:scaleType="center"
+        android:layout_marginTop="60dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
+        android:layout_below="@+id/upload_progress"
+        />
+
+    <VideoView
+        android:id="@+id/upload_video"
+        android:layout_width="match_parent"
+        android:layout_height="200dp"
+        android:background="#F00"
         android:scaleType="center"
         android:layout_marginTop="60dp"
         android:layout_marginLeft="20dp"

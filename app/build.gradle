@@ -20,7 +20,7 @@ android {
 }
 
 dependencies {
-    compile 'com.github.wildma:PictureSelector:1.1.1'
+    implementation 'com.github.LuckSiege.PictureSelector:picture_library:v2.2.3'
     compile 'com.qiniu:qiniu-android-sdk:7.6.4'
     compile 'com.google.code.gson:gson:2.8.6'
 

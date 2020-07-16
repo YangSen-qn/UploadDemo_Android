@@ -11,29 +11,38 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.MediaController;
 import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.VideoView;
 
+import com.luck.picture.lib.PictureSelector;
+import com.luck.picture.lib.config.PictureConfig;
+import com.luck.picture.lib.config.PictureMimeType;
+import com.luck.picture.lib.entity.LocalMedia;
 import com.qiniu.android.http.ResponseInfo;
 import com.qiniu.android.storage.UpCompletionHandler;
 import com.qiniu.android.storage.UpProgressHandler;
 import com.qiniu.android.storage.UploadManager;
 import com.qiniu.android.storage.UploadOptions;
-import com.wildma.pictureselector.PictureSelector;
 
 import org.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
 public class MainActivity extends AppCompatActivity {
 
+    private TextView progressTV = null;
     private ProgressBar progressBar = null;
     private ImageView imageView = null;
+    private VideoView videoView = null;
     private Button selectBtn = null;
     private Button uploadBtn = null;
 
-    private String imagePath = null;
+    private String mediaPath = null;
 
     private UploadManager uploadManager = null;
 
@@ -47,8 +56,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void initUI(){
+        progressTV = findViewById(R.id.upload_progress_label);
         progressBar = findViewById(R.id.upload_progress);
         imageView = findViewById(R.id.upload_image);
+        videoView = findViewById(R.id.upload_video);
+        videoView.getBackground().setAlpha(1);
         selectBtn = findViewById(R.id.upload_btn_select);
         uploadBtn = findViewById(R.id.upload_btn_upload);
 
@@ -73,12 +85,21 @@ public class MainActivity extends AppCompatActivity {
 
 
     private void selectImage(){
-        PictureSelector
-                .create(MainActivity.this, PictureSelector.SELECT_REQUEST_CODE)
-                .selectPicture();
+
+        PictureSelector.create(MainActivity.this)
+                .openGallery(PictureMimeType.ofAll())
+                .minSelectNum(1)
+                .maxSelectNum(1)
+                .forResult(PictureConfig.CHOOSE_REQUEST);
+
     }
 
     private void uploadImage(){
+        if (mediaPath == null){
+            showMessage("请先选择上传资源");
+            return;
+        }
+
         String token = "your token";
         token = "jH983zIUFIP1OVumiBVGeAfiLYJvwrF45S-t22eu:DtOhccYARFhzC4cpxtPaclI5sPU=:eyJzY29wZSI6InpvbmUwLXNwYWNlIiwiZGVhZGxpbmUiOjE1OTczOTMzOTYsICJyZXR1cm5Cb2R5Ijoie1wiZm9vXCI6JCh4OmZvbyksIFwiYmFyXCI6JCh4OmJhciksIFwibWltZVR5cGVcIjokKG1pbWVUeXBlKSwgXCJoYXNoXCI6JChldGFnKSwgXCJrZXlcIjokKGtleSksIFwiZm5hbWVcIjokKGZuYW1lKX0ifQ==";
         Map<String, String> params = new HashMap<String, String>();
@@ -88,11 +109,15 @@ public class MainActivity extends AppCompatActivity {
         final UploadOptions options = new UploadOptions(params, null, true, new UpProgressHandler() {
             @Override
             public void progress(String key, double percent) {
+
                 progressBar.setProgress((int)(percent * 100));
+                String percentString = String.format("%.1f", percent * 100) + "%";
+                progressTV.setText(percentString);
+
             }
         }, null);
 
-        uploadManager.put(imagePath, null, token, new UpCompletionHandler() {
+        uploadManager.put(mediaPath, null, token, new UpCompletionHandler() {
             @Override
             public void complete(String key, ResponseInfo info, JSONObject response) {
                 showMessage(info.toString());
@@ -104,15 +129,58 @@ public class MainActivity extends AppCompatActivity {
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == PictureSelector.SELECT_REQUEST_CODE){
-            if (data != null){
-                String imagePath = data.getStringExtra(PictureSelector.PICTURE_PATH);
-                Bitmap bm = BitmapFactory.decodeFile(imagePath);
-                imageView.setImageBitmap(bm);
+        if (resultCode == RESULT_OK){
+            if (requestCode == PictureConfig.CHOOSE_REQUEST) {// 图片选择结果回调
 
-                this.imagePath = imagePath;
+                List<LocalMedia> mediaList = PictureSelector.obtainMultipleResult(data);
+                if (mediaList != null && mediaList.size() > 0){
+                    LocalMedia media = mediaList.get(0);
+                    mediaPath = media.getPath();
+
+                    if (mediaPath == null) {
+                        return;
+                    }
+
+                    int mediaType = PictureMimeType.isPictureType(media.getPictureType());
+                    if (mediaType == PictureConfig.TYPE_IMAGE){
+                        showImage(mediaPath);
+                    } else if (mediaType == PictureConfig.TYPE_VIDEO){
+                        showVideo(mediaPath);
+                    }
+                }
             }
         }
+    }
+
+    private void showImage(String imagePath){
+        if (imagePath == null || imagePath.length() == 0){
+            return;
+        }
+
+        imageView.setVisibility(View.VISIBLE);
+        videoView.setVisibility(View.INVISIBLE);
+        videoView.clearFocus();
+        videoView.pause();
+
+        Bitmap bm = BitmapFactory.decodeFile(imagePath);
+        imageView.setImageBitmap(bm);
+
+    }
+
+    private void showVideo(String videoPath){
+        if (videoPath == null || videoPath.length() == 0){
+            return;
+        }
+
+        imageView.setVisibility(View.INVISIBLE);
+        videoView.setVisibility(View.VISIBLE);
+        videoView.requestFocus();
+        videoView.pause();
+
+        MediaController mediaController = new MediaController(this);
+        videoView.setMediaController(mediaController);
+        videoView.setVideoPath(videoPath);
+        videoView.start();
     }
 
     private void showMessage(String message){
