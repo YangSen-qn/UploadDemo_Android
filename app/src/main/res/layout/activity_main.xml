@@ -54,7 +54,7 @@
         android:id="@+id/upload_btn_select"
         android:layout_width="match_parent"
         android:layout_height="40dp"
-        android:layout_marginTop="100dp"
+        android:layout_marginTop="40dp"
         android:layout_below="@+id/upload_image"
         android:background="#3AE"
         android:text="@string/upload_select_btn_name"

@@ -8,6 +8,7 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
@@ -96,12 +97,17 @@ public class MainActivity extends AppCompatActivity {
 
     private void uploadImage(){
         if (mediaPath == null){
+            mediaPath = "/sdcard/PLDroidShortVideo-master .zip";
+            mediaPath = "/sdcard/thku.mp3";
+        }
+
+        if (mediaPath == null){
             showMessage("请先选择上传资源");
             return;
         }
 
-        String token = "your token";
-        token = "jH983zIUFIP1OVumiBVGeAfiLYJvwrF45S-t22eu:DtOhccYARFhzC4cpxtPaclI5sPU=:eyJzY29wZSI6InpvbmUwLXNwYWNlIiwiZGVhZGxpbmUiOjE1OTczOTMzOTYsICJyZXR1cm5Cb2R5Ijoie1wiZm9vXCI6JCh4OmZvbyksIFwiYmFyXCI6JCh4OmJhciksIFwibWltZVR5cGVcIjokKG1pbWVUeXBlKSwgXCJoYXNoXCI6JChldGFnKSwgXCJrZXlcIjokKGtleSksIFwiZm5hbWVcIjokKGZuYW1lKX0ifQ==";
+        // 此处配置自己的token
+        String token = Config.getToken();
         Map<String, String> params = new HashMap<String, String>();
         params.put("x:foo", "foo");
         params.put("x:bar", "bar");
@@ -123,6 +129,16 @@ public class MainActivity extends AppCompatActivity {
                 showMessage(info.toString());
             }
         }, options);
+    }
+
+    private int uploadCount = 1;
+    protected synchronized void uploadIfNeeded(ResponseInfo info){
+
+        Log.d("== upload", "已上传:" + uploadCount + "  " + info);
+        if (uploadCount < 500){
+            uploadImage();
+            uploadCount += 1;
+        }
     }
 
     @Override
