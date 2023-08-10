@@ -2,4 +2,5 @@
     <string name="app_name">UploadDemo_Android</string>
     <string name="upload_select_btn_name">选择</string>
     <string name="upload_upload_btn_name">上传</string>
+    <string name="upload_cancel_btn_name">取消</string>
 </resources>

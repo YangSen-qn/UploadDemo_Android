@@ -1,10 +1,8 @@
 package com.example.uploaddemo_android;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
@@ -17,21 +15,19 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.VideoView;
 
-import com.luck.picture.lib.PictureSelector;
-import com.luck.picture.lib.config.PictureConfig;
+import com.luck.picture.lib.basic.PictureSelector;
 import com.luck.picture.lib.config.PictureMimeType;
+import com.luck.picture.lib.config.SelectMimeType;
 import com.luck.picture.lib.entity.LocalMedia;
+import com.luck.picture.lib.interfaces.OnResultCallbackListener;
 import com.qiniu.android.http.ResponseInfo;
+import com.qiniu.android.storage.UpCancellationSignal;
 import com.qiniu.android.storage.UpCompletionHandler;
 import com.qiniu.android.storage.UpProgressHandler;
-import com.qiniu.android.storage.UploadManager;
-import com.qiniu.android.storage.UploadOptions;
 
 import org.json.JSONObject;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.ArrayList;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -42,21 +38,21 @@ public class MainActivity extends AppCompatActivity {
     private VideoView videoView = null;
     private Button selectBtn = null;
     private Button uploadBtn = null;
+    private Button cancelBtn = null;
 
+    private boolean isCancel = false;
     private String mediaPath = null;
-
-    private UploadManager uploadManager = null;
+    private QiniuUploader uploader = new QiniuUploader();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        initData();
         initUI();
     }
 
-    private void initUI(){
+    private void initUI() {
         progressTV = findViewById(R.id.upload_progress_label);
         progressBar = findViewById(R.id.upload_progress);
         imageView = findViewById(R.id.upload_image);
@@ -64,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
         videoView.getBackground().setAlpha(1);
         selectBtn = findViewById(R.id.upload_btn_select);
         uploadBtn = findViewById(R.id.upload_btn_upload);
+        cancelBtn = findViewById(R.id.upload_btn_cancel);
 
         selectBtn.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -78,98 +75,89 @@ public class MainActivity extends AppCompatActivity {
                 uploadImage();
             }
         });
+
+        cancelBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                cancelUpload();
+            }
+        });
     }
 
-    private void initData(){
-        uploadManager = new UploadManager();
+
+    private void selectImage() {
+        PictureSelector.create(this)
+                .openGallery(SelectMimeType.ofAll())
+                .setImageEngine(GlideEngine.getInstance())
+                .forResult(new OnResultCallbackListener<LocalMedia>() {
+                    @Override
+                    public void onResult(ArrayList<LocalMedia> mediaList) {
+                        if (mediaList != null && mediaList.size() > 0) {
+                            LocalMedia media = mediaList.get(0);
+                            mediaPath = media.getPath();
+
+                            if (mediaPath == null) {
+                                return;
+                            }
+
+                            if (media.getMimeType().contains(PictureMimeType.MIME_TYPE_PREFIX_IMAGE)) {
+                                showImage(mediaPath);
+                            } else if (media.getMimeType().contains(PictureMimeType.MIME_TYPE_PREFIX_VIDEO)) {
+                                showVideo(mediaPath);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onCancel() {
+
+                    }
+                });
     }
 
-
-    private void selectImage(){
-
-        PictureSelector.create(MainActivity.this)
-                .openGallery(PictureMimeType.ofAll())
-                .minSelectNum(1)
-                .maxSelectNum(1)
-                .forResult(PictureConfig.CHOOSE_REQUEST);
-
+    private void cancelUpload() {
+        isCancel = true;
     }
 
-    private void uploadImage(){
-        if (mediaPath == null){
+    private void uploadImage() {
+        if (mediaPath == null) {
             mediaPath = "/sdcard/PLDroidShortVideo-master .zip";
             mediaPath = "/sdcard/thku.mp3";
+            mediaPath = "/sdcard/shuishang.mp4";
+            mediaPath = "/sdcard/doc.zip";
+            mediaPath = "/sdcard/UploadResource_6M.zip";
         }
-
-        if (mediaPath == null){
-            showMessage("请先选择上传资源");
-            return;
-        }
+        isCancel = false;
 
         // 此处配置自己的token
         String token = Config.getToken();
-        Map<String, String> params = new HashMap<String, String>();
-        params.put("x:foo", "foo");
-        params.put("x:bar", "bar");
 
-        final UploadOptions options = new UploadOptions(params, null, true, new UpProgressHandler() {
-            @Override
-            public void progress(String key, double percent) {
-
-                progressBar.setProgress((int)(percent * 100));
-                String percentString = String.format("%.1f", percent * 100) + "%";
-                progressTV.setText(percentString);
-
-            }
-        }, null);
-
-        uploadManager.put(mediaPath, null, token, new UpCompletionHandler() {
-            @Override
-            public void complete(String key, ResponseInfo info, JSONObject response) {
-                showMessage(info.toString());
-            }
-        }, options);
-    }
-
-    private int uploadCount = 1;
-    protected synchronized void uploadIfNeeded(ResponseInfo info){
-
-        Log.d("== upload", "已上传:" + uploadCount + "  " + info);
-        if (uploadCount < 500){
-            uploadImage();
-            uploadCount += 1;
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        if (resultCode == RESULT_OK){
-            if (requestCode == PictureConfig.CHOOSE_REQUEST) {// 图片选择结果回调
-
-                List<LocalMedia> mediaList = PictureSelector.obtainMultipleResult(data);
-                if (mediaList != null && mediaList.size() > 0){
-                    LocalMedia media = mediaList.get(0);
-                    mediaPath = media.getPath();
-
-                    if (mediaPath == null) {
-                        return;
+        uploader.upload(mediaPath, "Android-Test", token,
+                new UpProgressHandler() {
+                    @Override
+                    public void progress(String key, double percent) {
+                        progressBar.setProgress((int) (percent * 100));
+                        String percentString = String.format("%.1f", percent * 100) + "%";
+                        progressTV.setText(percentString);
                     }
-
-                    int mediaType = PictureMimeType.isPictureType(media.getPictureType());
-                    if (mediaType == PictureConfig.TYPE_IMAGE){
-                        showImage(mediaPath);
-                    } else if (mediaType == PictureConfig.TYPE_VIDEO){
-                        showVideo(mediaPath);
+                },
+                new UpCancellationSignal() {
+                    @Override
+                    public boolean isCancelled() {
+                        return isCancel;
                     }
-                }
-            }
-        }
+                },
+                new UpCompletionHandler() {
+                    @Override
+                    public void complete(String key, ResponseInfo info, JSONObject response) {
+                        showMessage(info.toString());
+                    }
+                });
     }
 
-    private void showImage(String imagePath){
-        if (imagePath == null || imagePath.length() == 0){
+
+    private void showImage(String imagePath) {
+        if (imagePath == null || imagePath.length() == 0) {
             return;
         }
 
@@ -183,8 +171,8 @@ public class MainActivity extends AppCompatActivity {
 
     }
 
-    private void showVideo(String videoPath){
-        if (videoPath == null || videoPath.length() == 0){
+    private void showVideo(String videoPath) {
+        if (videoPath == null || videoPath.length() == 0) {
             return;
         }
 
@@ -199,7 +187,7 @@ public class MainActivity extends AppCompatActivity {
         videoView.start();
     }
 
-    private void showMessage(String message){
+    private void showMessage(String message) {
         new AlertDialog.Builder(this)
                 .setTitle("请求结果：")
                 .setMessage(message)
